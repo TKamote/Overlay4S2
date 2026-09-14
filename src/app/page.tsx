@@ -14,11 +14,7 @@ export default function Home() {
   return (
     <main className="mx-auto flex min-h-[100dvh] max-w-lg flex-col items-center justify-center gap-8 p-8">
       <div className="text-center">
-        <h1 className="text-3xl font-bold">Overlay4S2</h1>
-        <p className="mt-2 text-neutral-600">
-          Red/blue folded score bar with pool ball rack. Copied from Creator Overlay 4 in
-          psgb-creator.
-        </p>
+        <h1 className="text-3xl font-bold">Overlay4S2 (JhayR)</h1>
       </div>
       <nav className="flex w-full flex-col gap-3">
         {isSignedIn && (
