@@ -51,11 +51,11 @@ export default function Home() {
               </button>
             </p>
           ) : (
-            <p>
-              <Link href="/login" className="font-semibold underline">
+            <p className="text-[16px] text-neutral-600">
+              <Link href="/login" className="font-bold text-blue-600 underline">
                 Sign in
               </Link>{" "}
-              to control scores. OBS browser sources stay public and read-only.
+              to control scores.
             </p>
           )}
         </div>

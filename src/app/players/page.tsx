@@ -50,7 +50,9 @@ export default function PlayersPage() {
       setError(null);
       const fid = await getFamilyId();
       if (!fid) {
-        setError("No family linked to your account. Try signing out and back in.");
+        setError(
+          "No family linked to your account. Run supabase/migrations/20260914120000_repair_profiles.sql in the Supabase SQL editor, then sign out and back in."
+        );
         setPlayers([]);
         return;
       }
@@ -126,7 +128,10 @@ export default function PlayersPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!familyId) return;
+    if (!familyId) {
+      setError("No family linked to your account. Run the repair SQL in Supabase, then sign out and back in.");
+      return;
+    }
     const name = form.name.trim();
     if (!name) {
       setError("Name is required");
