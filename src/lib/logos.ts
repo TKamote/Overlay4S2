@@ -6,29 +6,35 @@ const BUCKET = "overlay-logos";
 export type LogoRow = {
   id: string;
   family_id: string;
+  pack_id: string;
   name: string;
   logo_url: string;
   created_at?: string;
 };
 
-export async function listLogos(familyId: string): Promise<LogoRow[]> {
+export async function listLogos(familyId: string, packId: string): Promise<LogoRow[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("logos")
-    .select("id, family_id, name, logo_url, created_at")
+    .select("id, family_id, pack_id, name, logo_url, created_at")
     .eq("family_id", familyId)
+    .eq("pack_id", packId)
     .order("name", { ascending: true });
   if (error) throw error;
   return (data as LogoRow[]) ?? [];
 }
 
-export async function uploadOverlayLogo(file: File, name: string): Promise<LogoRow> {
+export async function uploadOverlayLogo(
+  file: File,
+  name: string,
+  packId: string
+): Promise<LogoRow> {
   if (!supabase) throw new Error("Supabase not configured");
   const familyId = await getFamilyId();
   if (!familyId) throw new Error("No family linked to your account");
 
   const ext = file.name.split(".").pop() || "png";
-  const path = `${familyId}/${Date.now()}.${ext}`;
+  const path = `${familyId}/${packId}/${Date.now()}.${ext}`;
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
     cacheControl: "3600",
     upsert: true,
@@ -42,10 +48,11 @@ export async function uploadOverlayLogo(file: File, name: string): Promise<LogoR
     .from("logos")
     .insert({
       family_id: familyId,
+      pack_id: packId,
       name: name.trim() || file.name,
       logo_url: logoUrl,
     })
-    .select("id, family_id, name, logo_url, created_at")
+    .select("id, family_id, pack_id, name, logo_url, created_at")
     .single();
 
   if (error) throw error;

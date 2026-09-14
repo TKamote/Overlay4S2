@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Logo } from "@/components/LogoSelectionModal";
 import { listLogos, setMatchLogo, type LogoRow } from "@/lib/logos";
-import { getFamilyId } from "@/lib/players";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -21,19 +20,23 @@ export function useOverlayLogos(matchId: string) {
   const [showLogo2Modal, setShowLogo2Modal] = useState(false);
 
   const refreshLibrary = useCallback(async () => {
-    if (!configured || !supabase) return;
-    const familyId = await getFamilyId();
-    if (!familyId) {
-      setLogos([]);
-      return;
-    }
+    if (!configured || !supabase || !isSignedIn) return;
     try {
-      const rows = await listLogos(familyId);
+      const { data: match } = await supabase
+        .from("matches")
+        .select("family_id, pack_id")
+        .eq("id", matchId)
+        .maybeSingle();
+      if (!match?.family_id || !match?.pack_id) {
+        setLogos([]);
+        return;
+      }
+      const rows = await listLogos(match.family_id as string, match.pack_id as string);
       setLogos(rows.map(toLogo));
     } catch (err) {
       console.error("Failed to load logos", err);
     }
-  }, [configured]);
+  }, [configured, isSignedIn, matchId]);
 
   useEffect(() => {
     if (!supabase || !ready) return;
@@ -43,12 +46,24 @@ export function useOverlayLogos(matchId: string) {
     const load = async () => {
       const { data: match } = await client
         .from("matches")
-        .select("logo1_url, logo2_url")
+        .select("logo1_url, logo2_url, family_id, pack_id")
         .eq("id", matchId)
         .maybeSingle();
       if (cancelled || !match) return;
       setLogo1URL(match.logo1_url ? String(match.logo1_url) : "");
       setLogo2URL(match.logo2_url ? String(match.logo2_url) : "");
+      const familyId = match.family_id as string | null;
+      const packId = match.pack_id as string | null;
+      if (familyId && packId && isSignedIn) {
+        try {
+          const rows = await listLogos(familyId, packId);
+          if (!cancelled) setLogos(rows.map(toLogo));
+        } catch (err) {
+          console.error("Failed to load logos", err);
+        }
+      } else if (!cancelled) {
+        setLogos([]);
+      }
     };
 
     void load();
@@ -79,7 +94,7 @@ export function useOverlayLogos(matchId: string) {
       cancelled = true;
       void client.removeChannel(channel);
     };
-  }, [matchId, ready, refreshLibrary]);
+  }, [matchId, ready, refreshLibrary, isSignedIn]);
 
   const handleSelectLogo = useCallback(
     (slot: 1 | 2, logo: Logo) => {

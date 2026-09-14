@@ -99,7 +99,7 @@ begin
   select family_id into fid from public.profiles where family_id is not null limit 1;
 
   if fid is null then
-    insert into public.families (name) values ('Overlay4S1') returning id into fid;
+    insert into public.families (name) values ('Overlay4S2') returning id into fid;
 
     insert into public.matches (id, family_id)
     values ('overlay4s1', fid), ('overlay4s1-vertical', fid)
@@ -131,3 +131,65 @@ create trigger on_auth_user_created
 
 alter publication supabase_realtime add table public.matches;
 alter publication supabase_realtime add table public.players;
+
+-- Logos (also in 20260914200000_logos.sql for upgrades)
+alter table public.matches
+  add column if not exists logo1_url text,
+  add column if not exists logo2_url text;
+
+create table if not exists public.logos (
+  id uuid primary key default gen_random_uuid(),
+  family_id uuid not null references public.families (id) on delete cascade,
+  name text not null,
+  logo_url text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.logos enable row level security;
+
+drop policy if exists "logos_select_public" on public.logos;
+create policy "logos_select_public" on public.logos for select using (true);
+
+drop policy if exists "logos_write_member" on public.logos;
+create policy "logos_write_member" on public.logos
+  for all using (
+    family_id in (select family_id from public.profiles where id = auth.uid())
+  )
+  with check (
+    family_id in (select family_id from public.profiles where id = auth.uid())
+  );
+
+insert into storage.buckets (id, name, public)
+values ('overlay-logos', 'overlay-logos', true)
+on conflict (id) do nothing;
+
+-- Logos (also in 20260914200000_logos.sql for upgrades)
+alter table public.matches
+  add column if not exists logo1_url text,
+  add column if not exists logo2_url text;
+
+create table if not exists public.logos (
+  id uuid primary key default gen_random_uuid(),
+  family_id uuid not null references public.families (id) on delete cascade,
+  name text not null,
+  logo_url text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.logos enable row level security;
+
+drop policy if exists "logos_select_public" on public.logos;
+create policy "logos_select_public" on public.logos for select using (true);
+
+drop policy if exists "logos_write_member" on public.logos;
+create policy "logos_write_member" on public.logos
+  for all using (
+    family_id in (select family_id from public.profiles where id = auth.uid())
+  )
+  with check (
+    family_id in (select family_id from public.profiles where id = auth.uid())
+  );
+
+insert into storage.buckets (id, name, public)
+values ('overlay-logos', 'overlay-logos', true)
+on conflict (id) do nothing;

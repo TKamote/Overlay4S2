@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Overlay4S2 (JhayR)",
-  description: "Sellable stream overlay — red/blue folded bar + pool balls",
+  title: "Overlay4S2",
+  description: "Sellable stream overlays — JhayR and Anthony pairs",
 };
 
 export default function RootLayout({

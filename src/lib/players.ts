@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 export type PlayerRow = {
   id: string;
   family_id: string;
+  pack_id: string;
   name: string;
   photo_url: string | null;
   points: number;
@@ -29,13 +30,14 @@ export async function getFamilyId(): Promise<string | null> {
   return data?.family_id ?? null;
 }
 
-export async function listPlayers(familyId: string): Promise<PlayerRow[]> {
+export async function listPlayers(familyId: string, packId: string): Promise<PlayerRow[]> {
   if (!supabase) return [];
 
   const { data, error } = await supabase
     .from("players")
-    .select("id, family_id, name, photo_url, points, created_at")
+    .select("id, family_id, pack_id, name, photo_url, points, created_at")
     .eq("family_id", familyId)
+    .eq("pack_id", packId)
     .order("points", { ascending: false });
 
   if (error) {
@@ -47,6 +49,7 @@ export async function listPlayers(familyId: string): Promise<PlayerRow[]> {
 
 export async function createPlayer(input: {
   familyId: string;
+  packId: string;
   name: string;
   points?: number;
 }): Promise<string> {
@@ -56,6 +59,7 @@ export async function createPlayer(input: {
     .from("players")
     .insert({
       family_id: input.familyId,
+      pack_id: input.packId,
       name: input.name.trim(),
       points: input.points ?? 0,
     })

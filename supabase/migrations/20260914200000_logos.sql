@@ -1,4 +1,4 @@
--- Logos library + match logo slots for Overlay4S2 / sellable overlays.
+-- Logos library + match logo slots for Overlay4S2 sellable overlays.
 
 alter table public.matches
   add column if not exists logo1_url text,

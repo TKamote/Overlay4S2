@@ -33,6 +33,7 @@ const DEMO_PLAYERS: OverlayPlayer[] = [
 type MatchRow = {
   id: string;
   family_id: string | null;
+  pack_id: string | null;
   player1_id: string | null;
   player2_id: string | null;
   player1_score: number;
@@ -40,6 +41,11 @@ type MatchRow = {
   race_to: number;
   pocketed_balls: number[] | null;
   game_mode: string | null;
+};
+
+type BootstrapPayload = {
+  match: MatchRow;
+  players: PlayerRow[] | null;
 };
 
 type PlayerRow = {
@@ -119,6 +125,8 @@ export function useOverlayMatch({
   const lastResetPress = useRef(0);
   const RESET_TIMEOUT = 500;
   const playerListRef = useRef<OverlayPlayer[]>([]);
+  const familyIdRef = useRef<string | null>(null);
+  const packIdRef = useRef<string | null>(null);
 
   const canEdit = cloud ? isSignedIn : true;
   const rackBalls = useMemo(
@@ -162,17 +170,53 @@ export function useOverlayMatch({
 
     let cancelled = false;
 
+    const applyRoster = (playerRows: PlayerRow[] | null, fallbackDemo: boolean) => {
+      const roster = playerRows?.map(toOverlayPlayer) ?? [];
+      playerListRef.current = roster;
+      setPlayers(roster.length ? roster : fallbackDemo ? DEMO_PLAYERS : []);
+      return roster;
+    };
+
+    const loadPlayersForPack = async (familyId: string, packId: string) => {
+      const { data } = await client
+        .from("players")
+        .select("id, name, photo_url, points")
+        .eq("family_id", familyId)
+        .eq("pack_id", packId);
+      return applyRoster(data as PlayerRow[] | null, false);
+    };
+
     const load = async () => {
       try {
-        const { data: playerRows } = await client.from("players").select("id, name, photo_url, points");
-        const roster = (playerRows as PlayerRow[] | null)?.map(toOverlayPlayer) ?? [];
-        if (cancelled) return;
-        playerListRef.current = roster;
-        setPlayers(roster.length ? roster : DEMO_PLAYERS);
+        const { data: boot, error: bootError } = await client.rpc("get_overlay_bootstrap", {
+          p_match_id: matchId,
+        });
+        if (!bootError && boot && typeof boot === "object" && "match" in (boot as object)) {
+          const payload = boot as BootstrapPayload;
+          const match = payload.match;
+          familyIdRef.current = match.family_id;
+          packIdRef.current = match.pack_id;
+          const roster = applyRoster(payload.players, false);
+          if (cancelled) return;
+          applyMatch(match, roster);
+          return;
+        }
 
         const { data: match } = await client.from("matches").select("*").eq("id", matchId).maybeSingle();
         if (cancelled) return;
-        if (match) applyMatch(match as MatchRow, roster);
+        if (!match) {
+          applyRoster([], true);
+          return;
+        }
+        const row = match as MatchRow;
+        familyIdRef.current = row.family_id;
+        packIdRef.current = row.pack_id;
+        const roster =
+          row.family_id && row.pack_id
+            ? await loadPlayersForPack(row.family_id, row.pack_id)
+            : applyRoster([], false);
+        if (cancelled) return;
+        applyMatch(row, roster);
       } catch (err) {
         console.error("Failed to load match from Supabase", err);
       } finally {
@@ -196,14 +240,10 @@ export function useOverlayMatch({
         "postgres_changes",
         { event: "*", schema: "public", table: "players" },
         () => {
-          void client
-            .from("players")
-            .select("id, name, photo_url, points")
-            .then(({ data }) => {
-              const roster = (data as PlayerRow[] | null)?.map(toOverlayPlayer) ?? [];
-              playerListRef.current = roster;
-              setPlayers(roster.length ? roster : DEMO_PLAYERS);
-            });
+          const familyId = familyIdRef.current;
+          const packId = packIdRef.current;
+          if (!familyId || !packId) return;
+          void loadPlayersForPack(familyId, packId);
         }
       )
       .subscribe();
