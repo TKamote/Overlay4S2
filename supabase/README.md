@@ -7,6 +7,13 @@
 5. Authentication → URL configuration: add `http://localhost:3000/auth/callback` and your Vercel `/auth/callback` URL.
 6. Create the buyer user under Authentication → Users (email + password).
 
+## Logos
+
+Run `migrations/20260914200000_logos.sql` in the SQL editor (after init / repair).
+
+1. Sign in → **Manage players** → upload logos under **Logos**.
+2. Open `/overlay` while signed in → click the dashed logo slots (top-left) to assign.
+
 ## If Manage players cannot create players
 
 Overlays can still show seeded demo players (public read), while Manage players needs your Auth user linked to a `family_id`.

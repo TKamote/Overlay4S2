@@ -2,9 +2,11 @@
 
 import { type ReactNode } from "react";
 import Image from "next/image";
+import OverlayLogoColumn from "@/components/OverlayLogoColumn";
 import PlayerSelectionModal from "@/components/PlayerSelectionModal";
 import WinnerModal from "@/components/WinnerModal";
 import PoolBall from "@/components/PoolBall";
+import { useOverlayLogos } from "@/hooks/useOverlayLogos";
 import { useOverlayMatch, placeholderFor } from "@/hooks/useOverlayMatch";
 
 const MATCH_ID = "overlay4s1";
@@ -51,13 +53,15 @@ const CreatorOverlay4Page = () => {
     defaultRaceTo: 10,
   });
   const { canEdit } = m;
+  const overlayLogos = useOverlayLogos(MATCH_ID);
 
   const photoClass = `relative z-10 shrink-0 overflow-hidden rounded-[20%] border border-white/40 shadow-md ${
     canEdit ? "cursor-pointer hover:opacity-90" : "cursor-default"
   }`;
 
   return (
-    <div className="flex h-[100dvh] w-full flex-col items-center justify-end overflow-hidden bg-transparent pb-3 sm:pb-4 md:pb-5">
+    <div className="relative flex h-[100dvh] w-full flex-col items-center justify-end overflow-hidden bg-transparent pb-3 sm:pb-4 md:pb-5">
+      <OverlayLogoColumn canEdit={canEdit} {...overlayLogos} />
       <div className="flex w-full max-w-[1100px] flex-col items-center gap-3 px-3 sm:px-4">
         <div
           className="relative flex w-full items-center overflow-visible"

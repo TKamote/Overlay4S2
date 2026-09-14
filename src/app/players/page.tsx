@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { deleteLogo, listLogos, uploadOverlayLogo, type LogoRow } from "@/lib/logos";
 import { uploadPlayerPhoto } from "@/lib/playerPhotos";
 import {
   createPlayer,
@@ -33,6 +34,7 @@ export default function PlayersPage() {
   const { ready, isSignedIn, configured } = useAuth();
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [players, setPlayers] = useState<PlayerRow[]>([]);
+  const [logos, setLogos] = useState<LogoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -41,6 +43,9 @@ export default function PlayersPage() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [logoName, setLogoName] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoSaving, setLogoSaving] = useState(false);
   const mountedRef = useRef(true);
 
   const loadRoster = useCallback(async () => {
@@ -54,11 +59,15 @@ export default function PlayersPage() {
           "No family linked to your account. Run supabase/migrations/20260914120000_repair_profiles.sql in the Supabase SQL editor, then sign out and back in."
         );
         setPlayers([]);
+        setLogos([]);
         return;
       }
       setFamilyId(fid);
-      const rows = await listPlayers(fid);
-      if (mountedRef.current) setPlayers(rows);
+      const [rows, logoRows] = await Promise.all([listPlayers(fid), listLogos(fid)]);
+      if (mountedRef.current) {
+        setPlayers(rows);
+        setLogos(logoRows);
+      }
     } catch (err) {
       if (mountedRef.current) {
         setError(err instanceof Error ? err.message : "Failed to load players");
@@ -179,6 +188,37 @@ export default function PlayersPage() {
     }
   };
 
+  const handleLogoUpload = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!logoFile) {
+      setError("Choose a logo image to upload");
+      return;
+    }
+    setLogoSaving(true);
+    setError(null);
+    try {
+      await uploadOverlayLogo(logoFile, logoName || logoFile.name);
+      setLogoFile(null);
+      setLogoName("");
+      await loadRoster();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Logo upload failed");
+    } finally {
+      setLogoSaving(false);
+    }
+  };
+
+  const handleLogoDelete = async (logo: LogoRow) => {
+    if (!confirm(`Delete logo ${logo.name}?`)) return;
+    setError(null);
+    try {
+      await deleteLogo(logo.id);
+      await loadRoster();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Logo delete failed");
+    }
+  };
+
   const filtered = players.filter((p) =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -284,6 +324,72 @@ export default function PlayersPage() {
           ))
         )}
       </ul>
+
+      <section className="mt-10">
+        <h2 className="text-xl font-bold">Logos</h2>
+        <p className="mt-1 text-sm text-neutral-600">
+          Upload logos here, then assign left/right slots on the landscape overlay when signed
+          in.
+        </p>
+
+        <form
+          onSubmit={handleLogoUpload}
+          className="mt-4 flex flex-col gap-3 rounded-lg border border-neutral-200 p-4 sm:flex-row sm:items-end"
+        >
+          <label className="flex flex-1 flex-col gap-1 text-sm">
+            Name
+            <input
+              value={logoName}
+              onChange={(e) => setLogoName(e.target.value)}
+              placeholder="Sponsor name"
+              className="rounded-lg border border-neutral-300 px-3 py-2"
+            />
+          </label>
+          <label className="flex flex-1 flex-col gap-1 text-sm">
+            Image
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/svg+xml"
+              onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+              className="text-sm"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={logoSaving}
+            className="rounded-lg bg-neutral-900 px-4 py-2 font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+          >
+            {logoSaving ? "Uploading…" : "Upload logo"}
+          </button>
+        </form>
+
+        <ul className="mt-4 divide-y divide-neutral-200 rounded-lg border border-neutral-200">
+          {logos.length === 0 ? (
+            <li className="p-6 text-center text-neutral-500">No logos yet.</li>
+          ) : (
+            logos.map((logo) => (
+              <li key={logo.id} className="flex items-center gap-4 p-4">
+                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={logo.logo_url}
+                    alt={logo.name}
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+                <p className="min-w-0 flex-1 truncate font-semibold">{logo.name}</p>
+                <button
+                  type="button"
+                  onClick={() => void handleLogoDelete(logo)}
+                  className="rounded border border-red-200 px-3 py-1 text-sm text-red-700 hover:bg-red-50"
+                >
+                  Delete
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      </section>
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
